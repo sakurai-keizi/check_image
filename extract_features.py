@@ -197,7 +197,7 @@ def _write_html_report(
     .images {{ display: flex; gap: 12px; flex-wrap: wrap; }}
     figure {{ flex: 1; min-width: 160px; max-width: 240px; }}
     img {{
-      width: 100%; max-height: 240px; object-fit: contain;
+      width: 100%; max-height: 480px; object-fit: contain;
       background: #eee; border-radius: 4px; display: block;
     }}
     figcaption {{
