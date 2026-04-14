@@ -4,6 +4,7 @@
 #   "Pillow",
 #   "imagehash",
 #   "tqdm",
+#   "numpy",
 # ]
 # ///
 
@@ -12,9 +13,9 @@ import json
 import multiprocessing
 import os
 import sys
-from itertools import combinations
 from pathlib import Path
 
+import numpy as np
 from PIL import Image
 import imagehash
 from tqdm import tqdm
@@ -103,6 +104,14 @@ def cmd_extract(args: argparse.Namespace) -> None:
 
 # ─── search サブコマンド ─────────────────────────────────────────────────────
 
+def _popcount_uint64(x: np.ndarray) -> np.ndarray:
+    """numpy uint64 配列の各要素のビット数を返す（ハミング重み）。"""
+    x = x - ((x >> np.uint64(1)) & np.uint64(0x5555555555555555))
+    x = (x & np.uint64(0x3333333333333333)) + ((x >> np.uint64(2)) & np.uint64(0x3333333333333333))
+    x = (x + (x >> np.uint64(4))) & np.uint64(0x0F0F0F0F0F0F0F0F)
+    return (x * np.uint64(0x0101010101010101)) >> np.uint64(56)
+
+
 def cmd_search(args: argparse.Namespace) -> None:
     features_path = Path(args.features)
     if not features_path.exists():
@@ -117,19 +126,29 @@ def cmd_search(args: argparse.Namespace) -> None:
         print("比較できる画像が2件未満です。")
         return
 
-    items = [(path, imagehash.hex_to_hash(data["phash"])) for path, data in features.items()]
-    total_pairs = len(items) * (len(items) - 1) // 2
-    print(f"{len(items)} 件の特徴量を読み込みました。{total_pairs} ペアを比較中...")
+    paths = list(features.keys())
+    hashes = np.array(
+        [int(data["phash"], 16) for data in features.values()],
+        dtype=np.uint64,
+    )
+    n = len(paths)
+    total_pairs = n * (n - 1) // 2
+    print(f"{n} 件の特徴量を読み込みました。{total_pairs:,} ペアを比較中...")
 
     similar_pairs: list[dict] = []
-    for (path1, hash1), (path2, hash2) in tqdm(combinations(items, 2), total=total_pairs, unit="ペア"):
-        distance = hash1 - hash2
-        if distance <= args.threshold:
+    for i in tqdm(range(n - 1), unit="枚"):
+        # hashes[i] と hashes[i+1:] を一括比較
+        xor = hashes[i] ^ hashes[i + 1:]
+        distances = _popcount_uint64(xor).astype(np.int32)
+        matched = np.where(distances <= args.threshold)[0]
+        for offset in matched:
+            j = i + 1 + int(offset)
+            dist = int(distances[offset])
             similar_pairs.append({
-                "image1": path1,
-                "image2": path2,
-                "hamming_distance": distance,
-                "similarity": round(1.0 - distance / 64.0, 4),
+                "image1": paths[i],
+                "image2": paths[j],
+                "hamming_distance": dist,
+                "similarity": round(1.0 - dist / 64.0, 4),
             })
 
     similar_pairs.sort(key=lambda x: x["hamming_distance"])
