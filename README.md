@@ -107,22 +107,35 @@ uv run extract_features.py search -t 5 -o results.json --html report.html
 ```
 1000 件の特徴量を読み込みました。499,500 ペアを比較中...
 
-類似ペアが 3 組見つかりました（閾値: 10）:
+2 グループ（計 5 枚）が見つかりました（閾値: 10）:
 
-[1] ハミング距離: 0  類似度: 1.0000
-     /photos/img_001.jpg
-     /photos/img_001_copy.jpg
-[2] ハミング距離: 3  類似度: 0.9531
-     /photos/img_042.jpg
-     /photos/img_042_resized.jpg
+グループ 1 (3 枚)
+  /photos/img_001.jpg
+  /photos/img_001_copy.jpg
+  /photos/img_001_resized.jpg
+
+グループ 2 (2 枚)
+  /photos/img_042.jpg
+  /photos/img_042_edit.jpg
+```
+
+A と B が類似、B と C が類似の場合、A・B・C は同じグループにまとめられます（Union-Find による連結成分）。
+
+### JSON 出力形式
+
+```json
+[
+  { "group": 1, "images": ["/photos/img_001.jpg", "/photos/img_001_copy.jpg", "/photos/img_001_resized.jpg"] },
+  { "group": 2, "images": ["/photos/img_042.jpg", "/photos/img_042_edit.jpg"] }
+]
 ```
 
 ### HTMLレポート
 
 `--html` オプションを指定するとブラウザで確認できるレポートが生成されます。
 
-- 類似度の高い順にペアを一覧表示
-- 類似度をスコアとプログレスバーで視覚化
+- グループごとにカードを表示し、グループ内の全画像をグリッドで並べる
+- 画像の縦幅は最大 480px（アスペクト比維持）
 - 画像はスクロールして表示範囲に入ったタイミングで読み込まれるため、件数が多くても高速に表示されます
 
 ---
