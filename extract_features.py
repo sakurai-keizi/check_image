@@ -112,6 +112,85 @@ def _popcount_uint64(x: np.ndarray) -> np.ndarray:
     return (x * np.uint64(0x0101010101010101)) >> np.uint64(56)
 
 
+def _write_html_report(similar_pairs: list[dict], output_path: Path) -> None:
+    """類似ペアをHTMLレポートとして出力する。"""
+    rows = []
+    for i, pair in enumerate(similar_pairs, 1):
+        src1 = Path(pair["image1"]).resolve().as_uri()
+        src2 = Path(pair["image2"]).resolve().as_uri()
+        name1 = Path(pair["image1"]).name
+        name2 = Path(pair["image2"]).name
+        dist = pair["hamming_distance"]
+        sim = pair["similarity"]
+        bar_pct = int(sim * 100)
+        rows.append(f"""
+  <div class="pair">
+    <div class="meta">
+      <span class="rank">#{i}</span>
+      <span class="score">類似度 {sim:.4f}</span>
+      <div class="bar"><div class="bar-fill" style="width:{bar_pct}%"></div></div>
+      <span class="dist">ハミング距離 {dist} / 64</span>
+    </div>
+    <div class="images">
+      <figure>
+        <img src="{src1}" loading="lazy" alt="{name1}">
+        <figcaption>{name1}</figcaption>
+      </figure>
+      <figure>
+        <img src="{src2}" loading="lazy" alt="{name2}">
+        <figcaption>{name2}</figcaption>
+      </figure>
+    </div>
+  </div>""")
+
+    html = f"""<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>類似画像レポート</title>
+  <style>
+    *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{ font-family: sans-serif; background: #f4f4f4; color: #333; padding: 24px; }}
+    h1 {{ font-size: 1.4rem; margin-bottom: 4px; }}
+    .summary {{ color: #666; font-size: 0.9rem; margin-bottom: 24px; }}
+    .pair {{
+      background: #fff; border-radius: 8px; padding: 16px;
+      margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,.1);
+    }}
+    .meta {{
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 12px; flex-wrap: wrap;
+    }}
+    .rank {{ font-weight: bold; font-size: 1rem; color: #555; min-width: 3rem; }}
+    .score {{ font-size: 1rem; font-weight: bold; color: #1a6fcf; }}
+    .dist {{ font-size: 0.85rem; color: #888; }}
+    .bar {{
+      flex: 1; min-width: 100px; max-width: 200px;
+      height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden;
+    }}
+    .bar-fill {{ height: 100%; background: #1a6fcf; border-radius: 4px; }}
+    .images {{ display: flex; gap: 16px; flex-wrap: wrap; }}
+    figure {{ flex: 1; min-width: 200px; }}
+    img {{
+      width: 100%; max-height: 300px; object-fit: contain;
+      background: #eee; border-radius: 4px; display: block;
+    }}
+    figcaption {{
+      font-size: 0.75rem; color: #888; margin-top: 4px;
+      word-break: break-all;
+    }}
+  </style>
+</head>
+<body>
+  <h1>類似画像レポート</h1>
+  <p class="summary">{len(similar_pairs)} 組の類似ペアが見つかりました</p>
+{"".join(rows)}
+</body>
+</html>"""
+    output_path.write_text(html, encoding="utf-8")
+
+
 def cmd_search(args: argparse.Namespace) -> None:
     features_path = Path(args.features)
     if not features_path.exists():
@@ -169,6 +248,11 @@ def cmd_search(args: argparse.Namespace) -> None:
             json.dump(similar_pairs, f, ensure_ascii=False, indent=2)
         print(f"\n結果を保存しました: {output_path}")
 
+    if args.html:
+        html_path = Path(args.html)
+        _write_html_report(similar_pairs, html_path)
+        print(f"HTMLレポートを保存しました: {html_path}")
+
 
 # ─── エントリーポイント ──────────────────────────────────────────────────────
 
@@ -214,6 +298,10 @@ def main():
     p_search.add_argument(
         "-o", "--output",
         help="類似ペアの結果をJSONファイルに保存する（省略可）",
+    )
+    p_search.add_argument(
+        "--html",
+        help="類似ペアのHTMLレポートを保存する（省略可）",
     )
 
     args = parser.parse_args()
