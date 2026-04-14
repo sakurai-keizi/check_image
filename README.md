@@ -86,6 +86,7 @@ uv run extract_features.py search [オプション]
 | `-f, --features FILE` | 特徴量JSONファイルのパス | `features.json` |
 | `-t, --threshold N` | 類似と判定するハミング距離の閾値 | `10` |
 | `-o, --output FILE` | 結果をJSONファイルに保存する | （省略可） |
+| `--html FILE` | HTMLレポートを保存する | （省略可） |
 
 ```bash
 # 基本
@@ -93,12 +94,18 @@ uv run extract_features.py search
 
 # 閾値を厳しくして結果をファイルに保存
 uv run extract_features.py search -t 5 -o results.json
+
+# HTMLレポートを出力
+uv run extract_features.py search --html report.html
+
+# JSON と HTML を同時に出力
+uv run extract_features.py search -t 5 -o results.json --html report.html
 ```
 
 ### 出力例
 
 ```
-1000 件の特徴量を読み込みました。499500 ペアを比較中...
+1000 件の特徴量を読み込みました。499,500 ペアを比較中...
 
 類似ペアが 3 組見つかりました（閾値: 10）:
 
@@ -109,6 +116,14 @@ uv run extract_features.py search -t 5 -o results.json
      /photos/img_042.jpg
      /photos/img_042_resized.jpg
 ```
+
+### HTMLレポート
+
+`--html` オプションを指定するとブラウザで確認できるレポートが生成されます。
+
+- 類似度の高い順にペアを一覧表示
+- 類似度をスコアとプログレスバーで視覚化
+- 画像はスクロールして表示範囲に入ったタイミングで読み込まれるため、件数が多くても高速に表示されます
 
 ---
 
