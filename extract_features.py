@@ -3,6 +3,7 @@
 # dependencies = [
 #   "Pillow",
 #   "imagehash",
+#   "tqdm",
 # ]
 # ///
 
@@ -16,6 +17,7 @@ from pathlib import Path
 
 from PIL import Image
 import imagehash
+from tqdm import tqdm
 
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tiff"}
@@ -75,20 +77,19 @@ def cmd_extract(args: argparse.Namespace) -> None:
     if to_compute:
         workers = args.workers or os.cpu_count() or 1
         print(f"  {len(to_compute)} 件を {workers} プロセスで並列処理中...")
-        with multiprocessing.Pool(processes=workers) as pool:
-            results = pool.map(_compute_phash_worker, to_compute)
-
         added = updated = 0
-        for img_path, phash, mtime in results:
-            if phash is None:
-                continue
-            key = str(img_path)
-            is_update = key in existing
-            features[key] = {"phash": phash, "mtime": mtime}
-            if is_update:
-                updated += 1
-            else:
-                added += 1
+        with multiprocessing.Pool(processes=workers) as pool:
+            results = pool.imap_unordered(_compute_phash_worker, to_compute)
+            for img_path, phash, mtime in tqdm(results, total=len(to_compute), unit="枚"):
+                if phash is None:
+                    continue
+                key = str(img_path)
+                is_update = key in existing
+                features[key] = {"phash": phash, "mtime": mtime}
+                if is_update:
+                    updated += 1
+                else:
+                    added += 1
     else:
         added = updated = 0
 
@@ -121,7 +122,7 @@ def cmd_search(args: argparse.Namespace) -> None:
     print(f"{len(items)} 件の特徴量を読み込みました。{total_pairs} ペアを比較中...")
 
     similar_pairs: list[dict] = []
-    for (path1, hash1), (path2, hash2) in combinations(items, 2):
+    for (path1, hash1), (path2, hash2) in tqdm(combinations(items, 2), total=total_pairs, unit="ペア"):
         distance = hash1 - hash2
         if distance <= args.threshold:
             similar_pairs.append({
